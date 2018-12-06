@@ -16,16 +16,18 @@ transport for the [winston](https://github.com/winstonjs/winston) logging toolki
 - Thus consumable with [kibana](https://www.elastic.co/products/kibana).
 - Date pattern based index names.
 - Custom transformer function to transform logged data into a different message structure.
+- Buffering of messages in case of inavailability of ES. The limit is the memory as all unwritten messages are kept in memory.
 
 ### Compatibility
 
-For **Elasticsearch 5.0** and later, use the `0.5.x` series.
+For  **Winston 3.x**, **Elasticsearch 6.0** and later, use the `0.7.0`.
+For **Elasticsearch 6.0** and later, use the `0.6.0`.
+For **Elasticsearch 5.0** and later, use the `0.5.9`.
 For earlier versions, use the `0.4.x` series.
 
 ### Unsupported / Todo
 
 - Querying.
-- Real buffering of messages in case of unavailable ES.
 
 ## Installation
 
@@ -42,22 +44,22 @@ var Elasticsearch = require('winston-elasticsearch');
 var esTransportOpts = {
   level: 'info'
 };
-winston.add(winston.transports.Elasticsearch, esTransportOpts);
-
-// - or -
-
-var logger = new winston.Logger({
+var logger = winston.createLogger({
   transports: [
     new Elasticsearch(esTransportOpts)
   ]
 });
 ```
 
+The [winston API for logging](https://github.com/winstonjs/winston#streams-objectmode-and-info-objects)
+can be used with one restriction: Only one JS object can only be logged and indexed as such.
+If multiple objects are provided as arguments, the contents are stringified.
+
 ## Options
 
 - `level` [`info`] Messages logged with a severity greater or equal to the given one are logged to ES; others are discarded.
 - `index` [none] the index to be used. This option is mutually exclusive with `indexPrefix`.
-- `indexPrefix` [`logs`] the prefix to use to generate the index name according to the pattern `<indexPrefix>-<indexSuffixPattern>`.
+- `indexPrefix` [`logs`] the prefix to use to generate the index name according to the pattern `<indexPrefix>-<indexInterfix>-<indexSuffixPattern>`. Can be string or function, returning the string to use.
 - `indexSuffixPattern` [`YYYY.MM.DD`] a [Moment.js](http://momentjs.com/) compatible date/ time pattern.
 - `messageType` [`log`] the type (path segment after the index path) under which the messages are stored under the index.
 - `transformer` [see below] a transformer function to transform logged data into a different message structure.
@@ -67,20 +69,44 @@ var logger = new winston.Logger({
 - `client` An [elasticsearch client](https://www.npmjs.com/package/elasticsearch) instance. If given, all following options are ignored.
 - `clientOpts` An object hash passed to the ES client. See [its docs](https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/configuration.html) for supported options.
 - `waitForActiveShards` [`1`] Sets the number of shard copies that must be active before proceeding with the bulk operation.
+- `pipeline` [none] Sets the pipeline id to pre-process incoming documents with. See [the bulk API docs](https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/api-reference.html#api-bulk).
 
-## Important
+### Logging of ES Client
+
+The default client and options will log through `console`.
+
+### Interdependencies of Options
 
 When changing the `indexPrefix` and/ or the `transformer`,
 make sure to provide a matching `mappingTemplate`.
 
 ## Transformer
 
-The transformer function allows to transform the log data structure as provided
-by winston into a sturcture more appropriate for indexing in ES.
+The transformer function allows mutation of log data as provided
+by winston into a shape more appropriate for indexing in Elasticsearch.
 
-The default transformer function's transformation is shwon below.
+The default transformer generates a `@timestamp` and rolls any `meta`
+objects into an object called `fields`.
 
-Input:
+Params:
+
+- `logdata` An object with the data to log. Properties are:
+  - `timestamp` [`new Date().toISOString()`] The timestamp of the log entry
+  - `level` The log level of the entry
+  - `message` The message for the log entry
+  - `meta` The meta data for the log entry
+
+Returns: Object with the following properties
+
+- `@timestamp` The timestamp of the log entry
+- `severity` The log level of the entry
+- `message` The message for the log entry
+- `fields` The meta data for the log entry
+- `indexInterfix` optional, the interfix of the index to use for this entry
+
+The default transformer function's transformation is shown below.
+
+Input A:
 
 ```js
 {
@@ -95,11 +121,11 @@ Input:
 }
 ```
 
-Output:
+Output A:
 
 ```js
 {
-  "@timestamp": "2015-09-30T05:09:08.282Z",
+  "@timestamp": "2018-09-30T05:09:08.282Z",
   "message": "Some message",
   "severity": "info",
   "fields": {
@@ -109,11 +135,11 @@ Output:
   }
 }
 ```
-The `@timestamp` is generated in the transformer.
+
 Note that in current logstash versions, the only "standard fields" are @timestamp and @version,
 anything else ist just free.
 
-A custom trunsformer function can be provided in the options hash.
+A custom transformer function can be provided in the options hash.
 
 ## Events
 
@@ -126,8 +152,10 @@ An example assuming default settings.
 ### Log Action
 
 ```js
-logger.info('Some message', <req meta data>);
+logger.info('Some message', {});
 ```
+
+Only JSON objects are logged from the `meta` field. Any non-object is ignored.
 
 ### Generated Message
 
@@ -135,7 +163,7 @@ The log message generated by this module has the following structure:
 
 ```js
 {
-  "@timestamp": "2015-09-30T05:09:08.282Z",
+  "@timestamp": "2018-09-30T05:09:08.282Z",
   "message": "Some log message",
   "severity": "info",
   "fields": {
@@ -147,7 +175,7 @@ The log message generated by this module has the following structure:
       "accept": "*/*",
       "accept-encoding": "gzip,deflate",
       "from": "googlebot(at)googlebot.com",
-      "if-modified-since": "Tue, 30 Sep 2015 11:34:56 GMT",
+      "if-modified-since": "Tue, 30 Sep 2018 11:34:56 GMT",
       "x-forwarded-for": "66.249.78.19"
     }
   }
@@ -158,6 +186,6 @@ The log message generated by this module has the following structure:
 
 This message would be POSTed to the following endpoint:
 
-    http://localhost:9200/logs-2015.09.30/log/
+    http://localhost:9200/logs-2018.09.30/log/
 
 So the default mapping uses an index pattern `logs-*`.

@@ -1,3 +1,99 @@
+0.7.5 / 2018-09-30
+==================
+
+- Upgrade to Winston 3.1.0
+- Documentation fixes
+
+0.7.4 / 2018-07-23
+==================
+
+- Make sure no messages are lost in case of an ES level fault
+- Add a Typescript declaration file
+- Fix bug in ES fault handler
+
+0.7.3 / 2018-06-30
+==================
+
+- Possibility to have an `indexInterfix`
+
+0.7.2 / 2018-06-30
+==================
+
+- Remove _all field from default mapping as it is deprecated in ES
+- Support `logger.info({ message: 'Test', foo: 'bar' });` signature as well (make sure that field `foo` ends up in `fields` in the index)
+
+0.7.1 / 2018-06-18
+==================
+
+- Correct usage docs in README.md
+- Clone opts of ES client https://github.com/elastic/elasticsearch-js/issues/33
+
+0.7.0 / 2018-06-17
+==================
+
+- Upgrade to winston 3.0 and elasticsearch 15.0
+- Actually use message type _doc as default
+- Mapping template changed --> if you have a custom mapping please check!
+
+0.6.0 / 2018-04-28
+==================
+
+- Remove a lot of unsupported settings in the default mapping. **CHECK YOR MAPPING**, if you are using a custom one
+- Remove default mapping due to the fact that they are deprecated in ES v6.0.0 and greater
+- See https://www.elastic.co/guide/en/elasticsearch/reference/current/removal-of-types.html
+
+0.5.9 / 2018-04-16
+==================
+
+- Fix bug that lead to mapping template not being used
+- Upgrade deps
+
+0.5.8 / 2018-03-28
+==================
+
+Better error handling.
+
+0.5.7 / 2018-02-14
+==================
+
+- In order to prevent `UnhandledPromiseRejectionWarning` and tackle node.js deprecation DEP0018, catching and logging to console is now the default way of handling internal errors
+- Enable `sniffOnConnectionFault` on ES client by default
+- Change default mapping: `template` --> `index_patterns`
+- Migrate default mapping according to https://www.elastic.co/blog/strings-are-dead-long-live-strings
+- Moved retry logic into bulkwriter to handle intermittent connectivity interruptions gracefully AND be able to resume operation
+- Connection testing is now running infinitely which means the logger never gives up
+- Messages logged during a connection outage are buffered
+
+0.5.6 / 2017-12-24
+==================
+
+- Rename debug key from `bulk writer` to `winston:elasticsearch`
+- use `finally()` instead of `then()` to schedule bulk writes even in case of exceptions
+
+0.5.5 / 2017-12-15
+==================
+
+- Fix issue with loading built-in mapping
+- Upgrade to Elasticsearch client 14 (Elasticsearch 6)
+- Ignore 404 errors for silent creation of new indexes
+
+0.5.3 / 2017-10-02
+==================
+
+- Upgrade to Winston 2.4.0
+
+0.5.2 / 2017-09-28
+==================
+
+- Add pipeline option for elasticsearch
+
+0.5.1 / 2017-09-24
+==================
+
+- Upgrade all deps
+- Fix linting issues
+- Fix loading of template file previously done with require()
+
 0.5.0 / 2016-12-01
 ==================
 
